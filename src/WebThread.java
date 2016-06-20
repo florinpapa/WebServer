@@ -43,7 +43,7 @@ public class WebThread extends Thread {
 					
 					http.parseRequest(in, out);
 				    
-					w.sock.close();
+					sock.close();
 				}
 			}
 		} catch (InterruptedException e) {
