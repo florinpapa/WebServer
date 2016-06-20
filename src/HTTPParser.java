@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 public class HTTPParser {
+	private int BAD_REQUEST = 400;
+	
 	private class BasicRequest {
 		String method;
 		String path;
@@ -14,15 +16,19 @@ public class HTTPParser {
 		String response;
 		
 		if (reqLine == null) { // bad request
-			response = getBadRequest(); // replace with generic function
+			response = getResponseHeader(BAD_REQUEST);
 			out.println(response);
 			out.flush();
 			return;
 		}
 	}
 	
-	String getBadRequest() {
-		String result = new String("HTTP/1.1 400 Bad Request");
+	String getResponseHeader(int statusCode) {
+		String result = new String("");
+		
+		if (statusCode == BAD_REQUEST)
+			result += "HTTP/1.1 400 Bad Request";
+		
 		return result;
 	}
 	
@@ -44,7 +50,6 @@ public class HTTPParser {
 		while (req.equals("\n")) {
 			req = in.readLine();
 		}
-		System.out.println(req);
 		req_parts = req.split(" ");
 		
 		if (req_parts.length != 2 && req_parts.length != 3)  {// bad request
