@@ -87,7 +87,7 @@ public class WebServer {
 	}
 	
 	public static void main(String args[]) {
-		WebServer ws = new WebServer(8080, 10);
+		WebServer ws = new WebServer(8080, 2);
 		System.out.println("Starting web server on port 8080");
 		
 		/* start server */

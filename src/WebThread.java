@@ -1,4 +1,9 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 
@@ -21,11 +26,23 @@ public class WebThread extends Thread {
 				if (w == null) {
 					continue;
 				} else {
+					Socket sock;
+					BufferedReader in;
+				    PrintWriter out;
+				    HTTPParser http;
+					
 					/* if no more work to be done, stop this thread */
 					if (w.done)
 						break;
 					
-					System.out.println("Got work to do on port " + w.sock);
+					sock = w.sock;
+					in = new BufferedReader(
+					            new InputStreamReader(sock.getInputStream()));
+				    out = new PrintWriter(sock.getOutputStream());
+					http = new HTTPParser();
+					
+					http.parseRequest(in, out);
+				    
 					w.sock.close();
 				}
 			}
