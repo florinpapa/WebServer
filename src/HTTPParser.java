@@ -84,7 +84,7 @@ public class HTTPParser {
 		if (statusCode == BAD_REQUEST)
 			result += "HTTP/1.1 400 Bad Request";
 		if (statusCode == NOT_IMPLEMENTED) {
-			result += "HTTP/1.1 501 Unsupported Method + ('";
+			result += "HTTP/1.1 501 Unsupported Method ('";
 			result += args + "')\n";
 			result += getServerInfo();
 			result += readFile("html/unsupported.html");
