@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Hashtable;
 import java.util.TimeZone;
 
 public class HTTPParser {
@@ -23,17 +24,21 @@ public class HTTPParser {
 	void parseRequest(BufferedReader in, PrintWriter out) throws IOException {
 		BasicRequest reqLine = parseRequestLine(in);
 		String response;
+		Hashtable<String, String> attributes;
 		
 		if (reqLine == null || !isHTTPMethod(reqLine.method)) { // bad request
-			response = getResponseHeader(BAD_REQUEST, "");
+			response = getResponse(BAD_REQUEST, "");
 			out.println(response);
 			out.flush();
 			return;
 		} else {
+			attributes = parseAttributes(in);
 			if (isSupported(reqLine.method)) {
 				// do stuff
 			} else {	// method not allowed
-				response = getResponseHeader(NOT_IMPLEMENTED, reqLine.method);
+				response = getResponse(NOT_IMPLEMENTED, reqLine.method);
+				response = response.replace("method",
+					                    "method '(" + reqLine.method + ")'");
 				out.println(response);
 				out.flush();
 				return;
@@ -51,7 +56,7 @@ public class HTTPParser {
 		sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
 		
 		result += "Server: TinyJavaServer Java8\n";
-		result += "Date: " + sdf.format(currentTime) + " GMT\n";
+		result += "Date: " + sdf.format(currentTime) + "\n";
 		result += "Content-Type: text/html\n";
 		result += "Connection: close\n\n";
 		
@@ -78,7 +83,7 @@ public class HTTPParser {
 		return isSupported(method);
 	}
 	
-	String getResponseHeader(int statusCode, String args) throws IOException {
+	String getResponse(int statusCode, String args) throws IOException {
 		String result = new String("");
 		
 		if (statusCode == BAD_REQUEST)
@@ -112,7 +117,7 @@ public class HTTPParser {
 		 * Ignore all blank lines at the beginning
 		 * of the request.
 		 */
-		while (req.equals("\n")) {
+		while (req.equals("")) {
 			req = in.readLine();
 		}
 		req_parts = req.split(" ");
@@ -127,7 +132,31 @@ public class HTTPParser {
 		result.path = req_parts[1];
 		if (req_parts.length == 3)
 				result.httpVersion = req_parts[2]; 
-		
+
 		return result;
 	}
+	
+	/*
+	 * Function that parses the attributes received
+	 * in the header of an HTTP request. Returns a
+	 * Hashtable<String, String> where the key is
+	 * the attribute name.
+	 */
+	Hashtable<String, String> parseAttributes(BufferedReader in) throws IOException {
+		Hashtable<String, String> result = new Hashtable<>();
+		String line = in.readLine();
+		
+		while (!line.equals("")) {
+			/* only split by the first ':' */
+			String[] tokens = line.split(":", 2);
+			if (tokens.length == 2)
+				result.put(tokens[0], tokens[1]);
+			else
+				result.put(tokens[0], "");
+			line = in.readLine();
+		}
+
+		return result;
+	}
+	
 }
