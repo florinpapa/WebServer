@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
@@ -7,13 +8,17 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class HTTPParser {
 	private int BAD_REQUEST = 400;
 	private int NOT_IMPLEMENTED = 405;
 	private String[] supported_methods = {"GET", "HEAD"};
 	private String[] not_implemented_methods = {"PUT", "POST", "DELETE",
-											    "CONNECT", "OPTIONS", "TRACE"}; 
+											    "CONNECT", "OPTIONS", "TRACE"};
+	private String serverRoot = "res/";
+	private String serverName = "localhost";
 	
 	private class BasicRequest {
 		String method;
@@ -27,23 +32,64 @@ public class HTTPParser {
 		Hashtable<String, String> attributes;
 		
 		if (reqLine == null || !isHTTPMethod(reqLine.method)) { // bad request
-			response = getResponse(BAD_REQUEST, "");
-			out.println(response);
-			out.flush();
+			printResponse(BAD_REQUEST, "", out);
 			return;
 		} else {
 			attributes = parseAttributes(in);
 			if (isSupported(reqLine.method)) {
-				// do stuff
+				File target;
+				
+				/*
+				 * Parse request header to determine if the target
+				 * resource is correct
+				 */
+				target = parseTargetResource(reqLine.path);
+				if (target == null) {
+					printResponse(BAD_REQUEST, "", out);
+					return;
+				}
 			} else {	// method not allowed
-				response = getResponse(NOT_IMPLEMENTED, reqLine.method);
-				response = response.replace("method",
-					                    "method '(" + reqLine.method + ")'");
-				out.println(response);
-				out.flush();
+				printResponse(NOT_IMPLEMENTED, reqLine.method, out);
 				return;
 			}
 		}
+	}
+	
+	/*
+	 * Parse request target to determine whether it is correct
+	 * and it points to a valid file, inside the HTTP server
+	 * root. 
+	 * 
+	 * Determine if the target resource is in origin form or
+	 * absolute form, as described in section 5.3 of
+	 * the HTTP RFC here:
+	 * https://tools.ietf.org/html/rfc7230#section-5.3
+	 * 
+	 * Return File if the target resource is valid
+	 * and null otherwise.
+	 */
+	File parseTargetResource(String path) {
+		Pattern originPattern = Pattern.compile("/.*");
+		Pattern absolutePattern = Pattern.compile("http://localhost/.*");
+		Matcher originMatcher = originPattern.matcher(path);
+		Matcher absoluteMatcher = absolutePattern.matcher(path);
+		File result = null;
+		int pathStartIndex = 17;
+		
+		if (originMatcher.matches()) { // origin form
+			System.out.println("origin form " + serverRoot + " " + path);
+			result = new File(serverRoot, path);
+			if (!result.exists())
+				return null;
+		} else if (absoluteMatcher.matches()){ // absolute form
+			String relativePath = path.substring(pathStartIndex);
+			System.out.println("absolute form " + serverRoot + " " + relativePath);
+			result = new File(serverRoot, relativePath);
+			if (!result.exists())
+				return null;
+		}
+		
+		return result;
 	}
 	
 	String getServerInfo() {
@@ -82,19 +128,23 @@ public class HTTPParser {
 		return isSupported(method);
 	}
 	
-	String getResponse(int statusCode, String args) throws IOException {
+	void printResponse(int statusCode, String args, PrintWriter out) throws IOException {
 		String result = new String("");
 		
 		if (statusCode == BAD_REQUEST) {
 			result += "HTTP/1.1 400 Bad Request";
 			result += formatResponse("html/badrequest.html");
+			out.println(result);
+			out.flush();
 		} if (statusCode == NOT_IMPLEMENTED) {
 			result += "HTTP/1.1 501 Unsupported Method ('";
 			result += args + "')\n";
 			result += formatResponse("html/unsupported.html");
+			result = result.replace("method",
+                    	"method '(" + args + ")'");
+			out.println(result);
+			out.flush();
 		}
-		
-		return result;
 	}
 	
 	String formatResponse(String filename) throws IOException {
