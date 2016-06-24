@@ -57,8 +57,7 @@ public class HTTPParser {
 		
 		result += "Server: TinyJavaServer Java8\n";
 		result += "Date: " + sdf.format(currentTime) + "\n";
-		result += "Content-Type: text/html\n";
-		result += "Connection: close\n\n";
+		result += "Connection: close\n";
 		
 		return result;
 	}
@@ -86,14 +85,28 @@ public class HTTPParser {
 	String getResponse(int statusCode, String args) throws IOException {
 		String result = new String("");
 		
-		if (statusCode == BAD_REQUEST)
+		if (statusCode == BAD_REQUEST) {
 			result += "HTTP/1.1 400 Bad Request";
-		if (statusCode == NOT_IMPLEMENTED) {
+			result += formatResponse("html/badrequest.html");
+		} if (statusCode == NOT_IMPLEMENTED) {
 			result += "HTTP/1.1 501 Unsupported Method ('";
 			result += args + "')\n";
-			result += getServerInfo();
-			result += readFile("html/unsupported.html");
+			result += formatResponse("html/unsupported.html");
 		}
+		
+		return result;
+	}
+	
+	String formatResponse(String filename) throws IOException {
+		String result = "";
+		String fileContent;
+		
+		fileContent = readFile(filename);
+		
+		result += getServerInfo();
+		result += "Content-Type: text/html; charset=UTF-8\n";
+		result += "Content-Length: " + fileContent.length() + "\n\n";
+		result += fileContent;
 		
 		return result;
 	}
