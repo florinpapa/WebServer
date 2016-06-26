@@ -49,7 +49,7 @@ public class HTTPParser {
 					printResponse(statusCodes.NOT_FOUND, "", out);
 					return;
 				} else {
-					// deliver file
+					printResponse(statusCodes.OK, target, out);
 				}
 			} else {	// method not allowed
 				printResponse(statusCodes.NOT_IMPLEMENTED, reqLine.method, out);
@@ -147,7 +147,7 @@ public class HTTPParser {
 		return isSupported(method);
 	}
 	
-	void printResponse(int statusCode, String args, PrintWriter out) throws IOException {
+	void printResponse(int statusCode, Object args, PrintWriter out) throws IOException {
 		String result = new String("");
 		
 		if (statusCode == statusCodes.BAD_REQUEST) {
@@ -156,8 +156,10 @@ public class HTTPParser {
 			out.println(result);
 			out.flush();
 		} else if (statusCode == statusCodes.NOT_IMPLEMENTED) {
+			String method = (String)args;
+			
 			result += "HTTP/1.1 501 Unsupported Method ('";
-			result += args + "')\n";
+			result += method + "')\n";
 			result += formatResponse("html/unsupported.html");
 			result = result.replace("method",
                     	"method '(" + args + ")'");
@@ -168,7 +170,55 @@ public class HTTPParser {
 			result += formatResponse("html/filenotfound.html");
 			out.println(result);
 			out.flush();
+		} else if (statusCode == statusCodes.OK) {
+			File toSend = (File)args;
+			
+			result += "HTTP/1.1 200 OK";
+			result += getServerInfo();
+			out.print(result);
+			sendFile(toSend, out);
+			out.flush();
 		}
+	}
+	
+	void sendFile(File f, PrintWriter out) throws IOException {
+		String result = "";
+		
+		if (f.isDirectory()) {
+			String htmlBody = getDirListing(f);
+			result += "Content-type: text/html; charset=utf-8\n";
+			result += "Content-Length: " + htmlBody.length() + "\n\n";
+			
+			out.println(result + htmlBody);
+		}
+	}
+	
+	String getRelativePath(File f) throws IOException {
+		File rootDir = new File(this.serverRoot);
+		String path = f.getCanonicalPath();
+		String rootPath = rootDir.getCanonicalPath();
+		String result = path.replace(rootPath, "");
+		
+		return result;
+	}
+	
+	String getDirListing(File dir) throws IOException {
+		String result = "";
+		File[] dirFiles = dir.listFiles();
+		
+		result += "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\"><html>\n";
+		result += "<title>Directory listing for " + getRelativePath(dir) + "/</title>\n";
+		result += "<body>\n";
+		result += "<h2>Directory listing for " + getRelativePath(dir) + "/</h2>\n";
+		result += "<hr>";
+		result += "<ul>";
+		for (File f : dirFiles) {
+			String path = getRelativePath(f);
+			result += "<li><a href=\"" + path + "\">" + f.getName() + "</a>\n";
+		}
+		result += "</ul>\n</hr>\n</body>\n</html>";
+
+		return result;
 	}
 	
 	String formatResponse(String filename) throws IOException {

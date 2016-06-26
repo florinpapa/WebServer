@@ -98,14 +98,14 @@ public class WebServer {
 		});
 		t.start();
 		
-		try {
-			/* Sleep for 60 seconds before stopping the server */
-		    Thread.sleep(60000);
-		} catch(InterruptedException e) {
-		    e.printStackTrace();
-		}
+//		try {
+//			/* Sleep for 60 seconds before stopping the server */
+//		    Thread.sleep(60000);
+//		} catch(InterruptedException e) {
+//		    e.printStackTrace();
+//		}
 		
-		System.out.println("Done waiting");
-		ws.setDone(true);
+//		System.out.println("Done waiting");
+//		ws.setDone(true);
 	}
 }
