@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -111,17 +113,27 @@ public class HTTPParser {
 		return false;
 	}
 	
-	String getServerInfo() {
-		String result = new String("");
-		final Date currentTime = new Date();
+	String getTime(Object timestamp) {
+		String result = "";
 		final SimpleDateFormat sdf =
 		        new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss a z");
-
-		// Output GMT time
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
+		sdf.setTimeZone(TimeZone.getTimeZone("GMT")); // GMT time
+		
+		if (timestamp == null) {
+			final Date currentTime = new Date();
+			result = sdf.format(currentTime);
+		} else {
+			result = sdf.format(timestamp);
+		}
+		
+		return result;
+	}
+	
+	String getServerInfo() {
+		String result = new String("");
 		
 		result += "Server: TinyJavaServer Java8\n";
-		result += "Date: " + sdf.format(currentTime) + "\n";
+		result += "Date: " + getTime(null) + "\n";
 		result += "Connection: close\n";
 		
 		return result;
@@ -190,7 +202,35 @@ public class HTTPParser {
 			result += "Content-Length: " + htmlBody.length() + "\n\n";
 			
 			out.println(result + htmlBody);
+		} else {
+			InputStream in = new FileInputStream(f);
+			byte[] bytes = new byte[16 * 1024];
+			long size = f.length();
+			int count;
+			
+			if (isHtml(f))
+				result += "Content-type: text/html; charset=utf-8\n";
+			else
+				result += "Content-type: application/octet-stream\n";
+			
+			result += "Content-Length: " + size + "\n";
+			result += "Last-Modified: " + getTime(f.lastModified()) + "\n\n";
+			out.print(result);
+			
+			while ((count = in.read(bytes)) > 0) {
+				String toSend = new String(bytes);
+				toSend = toSend.substring(0, count);
+	            out.print(toSend);
+	        }
+			
+			in.close();
+			out.println();
 		}
+	}
+	
+	boolean isHtml(File f) {
+		String name = f.getName();
+		return name.endsWith(".html");
 	}
 	
 	String getRelativePath(File f) throws IOException {
