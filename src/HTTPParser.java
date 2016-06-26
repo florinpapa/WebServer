@@ -12,8 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class HTTPParser {
-	private int BAD_REQUEST = 400;
-	private int NOT_IMPLEMENTED = 405;
+	private StatusCodes statusCodes = new StatusCodes();
 	private String[] supported_methods = {"GET", "HEAD"};
 	private String[] not_implemented_methods = {"PUT", "POST", "DELETE",
 											    "CONNECT", "OPTIONS", "TRACE"};
@@ -28,11 +27,10 @@ public class HTTPParser {
 	
 	void parseRequest(BufferedReader in, PrintWriter out) throws IOException {
 		BasicRequest reqLine = parseRequestLine(in);
-		String response;
 		Hashtable<String, String> attributes;
 		
 		if (reqLine == null || !isHTTPMethod(reqLine.method)) { // bad request
-			printResponse(BAD_REQUEST, "", out);
+			printResponse(statusCodes.BAD_REQUEST, "", out);
 			return;
 		} else {
 			attributes = parseAttributes(in);
@@ -45,11 +43,16 @@ public class HTTPParser {
 				 */
 				target = parseTargetResource(reqLine.path);
 				if (target == null) {
-					printResponse(BAD_REQUEST, "", out);
+					printResponse(statusCodes.BAD_REQUEST, "", out);
 					return;
+				} else if (!target.exists()) {
+					printResponse(statusCodes.NOT_FOUND, "", out);
+					return;
+				} else {
+					// deliver file
 				}
 			} else {	// method not allowed
-				printResponse(NOT_IMPLEMENTED, reqLine.method, out);
+				printResponse(statusCodes.NOT_IMPLEMENTED, reqLine.method, out);
 				return;
 			}
 		}
@@ -131,17 +134,22 @@ public class HTTPParser {
 	void printResponse(int statusCode, String args, PrintWriter out) throws IOException {
 		String result = new String("");
 		
-		if (statusCode == BAD_REQUEST) {
+		if (statusCode == statusCodes.BAD_REQUEST) {
 			result += "HTTP/1.1 400 Bad Request";
 			result += formatResponse("html/badrequest.html");
 			out.println(result);
 			out.flush();
-		} if (statusCode == NOT_IMPLEMENTED) {
+		} else if (statusCode == statusCodes.NOT_IMPLEMENTED) {
 			result += "HTTP/1.1 501 Unsupported Method ('";
 			result += args + "')\n";
 			result += formatResponse("html/unsupported.html");
 			result = result.replace("method",
                     	"method '(" + args + ")'");
+			out.println(result);
+			out.flush();
+		} else if (statusCode == statusCodes.NOT_FOUND) {
+			result += "HTTP/1.1 404 File not found";
+			result += formatResponse("html/filenotfound.html");
 			out.println(result);
 			out.flush();
 		}
