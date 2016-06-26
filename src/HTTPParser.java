@@ -45,7 +45,7 @@ public class HTTPParser {
 				if (target == null) {
 					printResponse(statusCodes.BAD_REQUEST, "", out);
 					return;
-				} else if (!target.exists()) {
+				} else if (!isValid(target)) {
 					printResponse(statusCodes.NOT_FOUND, "", out);
 					return;
 				} else {
@@ -80,19 +80,35 @@ public class HTTPParser {
 		int pathStartIndex = 17;
 		
 		if (originMatcher.matches()) { // origin form
-			System.out.println("origin form " + serverRoot + " " + path);
+			//System.out.println("origin form " + serverRoot + " " + path);
 			result = new File(serverRoot, path);
-			if (!result.exists())
-				return null;
 		} else if (absoluteMatcher.matches()){ // absolute form
 			String relativePath = path.substring(pathStartIndex);
-			System.out.println("absolute form " + serverRoot + " " + relativePath);
+			//System.out.println("absolute form " + serverRoot + " " + relativePath);
 			result = new File(serverRoot, relativePath);
-			if (!result.exists())
-				return null;
+		} else {
+			return null;
 		}
 		
 		return result;
+	}
+	
+	/*
+	 * Check whether a file that was requested is valid.
+	 * Determine if the file exists and if it is inside the
+	 * server resource folder.
+	 */
+	boolean isValid(File f) throws IOException {
+		if (f.exists()) {
+			String filePath = f.getCanonicalPath();
+			File res = new File("res");
+			String resPath = res.getCanonicalPath();
+			
+			if (filePath.startsWith(resPath))
+				return true;
+		}
+		
+		return false;
 	}
 	
 	String getServerInfo() {
