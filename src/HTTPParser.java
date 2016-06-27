@@ -48,6 +48,7 @@ public class HTTPParser {
 			attributes = parseAttributes(in);
 			if (isSupported(reqLine.method)) {
 				File target;
+				String method = reqLine.method;
 				
 				/*
 				 * Parse request header to determine if the target
@@ -67,7 +68,7 @@ public class HTTPParser {
 						return;
 					}
 					
-					if (reqLine.method.equals("GET") || reqLine.equals("HEAD")) {
+					if (method.equals("GET") || method.equals("HEAD")) {
 						/* 404 file not found */
 						if (!isValid(target)) {
 							req.statusCode = statusCodes.NOT_FOUND;
@@ -197,7 +198,7 @@ public class HTTPParser {
 		String result = new String("");
 		
 		if (req.statusCode == statusCodes.BAD_REQUEST) {
-			result += "HTTP/1.1 400 Bad Request";
+			result += "HTTP/1.1 400 Bad Request\n";
 			result += formatResponse("html/badrequest.html");
 			req.out.println(result);
 			req.out.flush();
@@ -210,12 +211,12 @@ public class HTTPParser {
 			req.out.println(result);
 			req.out.flush();
 		} else if (req.statusCode == statusCodes.NOT_FOUND) {
-			result += "HTTP/1.1 404 File not found";
+			result += "HTTP/1.1 404 File not found\n";
 			result += formatResponse("html/filenotfound.html");
 			req.out.println(result);
 			req.out.flush();
 		} else if (req.statusCode == statusCodes.OK) {		
-			result += "HTTP/1.1 200 OK";
+			result += "HTTP/1.1 200 OK\n";
 			result += getServerInfo();
 			req.out.print(result);
 			sendFile(req);
@@ -229,15 +230,15 @@ public class HTTPParser {
 		
 		if (f.isDirectory()) {
 			String htmlBody = getDirListing(f);
-			result += "Content-type: text/html; charset=utf-8\n";
+			result += "Content-type: text/html;charset=utf-8\n";
 			result += "Content-Length: " + htmlBody.length() + "\n\n";
 			
-			req.out.println(result + htmlBody);
+			if (req.method.equals("GET"))
+				req.out.println(result + htmlBody);
+			else
+				req.out.print(result);
 		} else {
-			InputStream in = new FileInputStream(f);
-			byte[] bytes = new byte[16 * 1024];
 			long size = f.length();
-			int count;
 			
 			if (isHtml(f))
 				result += "Content-type: text/html; charset=utf-8\n";
@@ -248,14 +249,20 @@ public class HTTPParser {
 			result += "Last-Modified: " + getTime(f.lastModified()) + "\n\n";
 			req.out.print(result);
 			
-			while ((count = in.read(bytes)) > 0) {
-				String toSend = new String(bytes);
-				toSend = toSend.substring(0, count);
-	            req.out.print(toSend);
-	        }
-			
-			in.close();
-			req.out.println();
+			if (req.method.equals("GET")) {
+				InputStream in = new FileInputStream(f);
+				byte[] bytes = new byte[16 * 1024];
+				int count;
+				
+				while ((count = in.read(bytes)) > 0) {
+					String toSend = new String(bytes);
+					toSend = toSend.substring(0, count);
+		            req.out.print(toSend);
+		        }
+				
+				in.close();
+				req.out.println();
+			}
 		}
 	}
 	
