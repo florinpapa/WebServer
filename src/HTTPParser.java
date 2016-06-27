@@ -27,12 +27,22 @@ public class HTTPParser {
 		String httpVersion;
 	}
 	
+	private class RequestInfo {
+		int statusCode;
+		File toSend;
+		PrintWriter out;
+		String method;
+	}
+	
 	void parseRequest(BufferedReader in, PrintWriter out) throws IOException {
 		BasicRequest reqLine = parseRequestLine(in);
 		Hashtable<String, String> attributes;
+		RequestInfo req = new RequestInfo();
 		
+		req.out = out;
 		if (reqLine == null || !isHTTPMethod(reqLine.method)) { // bad request
-			printResponse(statusCodes.BAD_REQUEST, "", out);
+			req.statusCode = statusCodes.BAD_REQUEST;
+			printResponse(req);
 			return;
 		} else {
 			attributes = parseAttributes(in);
@@ -44,20 +54,44 @@ public class HTTPParser {
 				 * resource is correct
 				 */
 				target = parseTargetResource(reqLine.path);
+				/* badly formatted URI */
 				if (target == null) {
-					printResponse(statusCodes.BAD_REQUEST, "", out);
-					return;
-				} else if (!isValid(target)) {
-					printResponse(statusCodes.NOT_FOUND, "", out);
+					req.statusCode = statusCodes.BAD_REQUEST;
+					printResponse(req);
 					return;
 				} else {
-					printResponse(statusCodes.OK, target, out);
+					/* bad HTTP version */
+					if (!supportedHttpVersion(reqLine.httpVersion)) {
+						req.statusCode = statusCodes.BAD_REQUEST;
+						printResponse(req);
+						return;
+					}
+					
+					if (reqLine.method.equals("GET") || reqLine.equals("HEAD")) {
+						/* 404 file not found */
+						if (!isValid(target)) {
+							req.statusCode = statusCodes.NOT_FOUND;
+							printResponse(req);
+							return;
+						} else {
+							req.method = reqLine.method;
+							req.statusCode = statusCodes.OK;
+							req.toSend = target;
+							printResponse(req);
+						}
+					}
 				}
 			} else {	// method not allowed
-				printResponse(statusCodes.NOT_IMPLEMENTED, reqLine.method, out);
+				req.statusCode = statusCodes.NOT_IMPLEMENTED;
+				req.method = reqLine.method;
+				printResponse(req);
 				return;
 			}
 		}
+	}
+	
+	boolean supportedHttpVersion(String version) {
+		return (version.equals("HTTP/1.1") || version.equals("HTTP/1.0"));
 	}
 	
 	/*
@@ -75,7 +109,7 @@ public class HTTPParser {
 	 */
 	File parseTargetResource(String path) {
 		Pattern originPattern = Pattern.compile("/.*");
-		Pattern absolutePattern = Pattern.compile("http://localhost/.*");
+		Pattern absolutePattern = Pattern.compile("http://" + serverName + "/.*");
 		Matcher originMatcher = originPattern.matcher(path);
 		Matcher absoluteMatcher = absolutePattern.matcher(path);
 		File result = null;
@@ -159,49 +193,46 @@ public class HTTPParser {
 		return isSupported(method);
 	}
 	
-	void printResponse(int statusCode, Object args, PrintWriter out) throws IOException {
+	void printResponse(RequestInfo req) throws IOException {
 		String result = new String("");
 		
-		if (statusCode == statusCodes.BAD_REQUEST) {
+		if (req.statusCode == statusCodes.BAD_REQUEST) {
 			result += "HTTP/1.1 400 Bad Request";
 			result += formatResponse("html/badrequest.html");
-			out.println(result);
-			out.flush();
-		} else if (statusCode == statusCodes.NOT_IMPLEMENTED) {
-			String method = (String)args;
-			
+			req.out.println(result);
+			req.out.flush();
+		} else if (req.statusCode == statusCodes.NOT_IMPLEMENTED) {
 			result += "HTTP/1.1 501 Unsupported Method ('";
-			result += method + "')\n";
+			result += req.method + "')\n";
 			result += formatResponse("html/unsupported.html");
 			result = result.replace("method",
-                    	"method '(" + args + ")'");
-			out.println(result);
-			out.flush();
-		} else if (statusCode == statusCodes.NOT_FOUND) {
+                    	"method '(" + req.method + ")'");
+			req.out.println(result);
+			req.out.flush();
+		} else if (req.statusCode == statusCodes.NOT_FOUND) {
 			result += "HTTP/1.1 404 File not found";
 			result += formatResponse("html/filenotfound.html");
-			out.println(result);
-			out.flush();
-		} else if (statusCode == statusCodes.OK) {
-			File toSend = (File)args;
-			
+			req.out.println(result);
+			req.out.flush();
+		} else if (req.statusCode == statusCodes.OK) {		
 			result += "HTTP/1.1 200 OK";
 			result += getServerInfo();
-			out.print(result);
-			sendFile(toSend, out);
-			out.flush();
+			req.out.print(result);
+			sendFile(req);
+			req.out.flush();
 		}
 	}
 	
-	void sendFile(File f, PrintWriter out) throws IOException {
+	void sendFile(RequestInfo req) throws IOException {
 		String result = "";
+		File f = req.toSend;
 		
 		if (f.isDirectory()) {
 			String htmlBody = getDirListing(f);
 			result += "Content-type: text/html; charset=utf-8\n";
 			result += "Content-Length: " + htmlBody.length() + "\n\n";
 			
-			out.println(result + htmlBody);
+			req.out.println(result + htmlBody);
 		} else {
 			InputStream in = new FileInputStream(f);
 			byte[] bytes = new byte[16 * 1024];
@@ -215,16 +246,16 @@ public class HTTPParser {
 			
 			result += "Content-Length: " + size + "\n";
 			result += "Last-Modified: " + getTime(f.lastModified()) + "\n\n";
-			out.print(result);
+			req.out.print(result);
 			
 			while ((count = in.read(bytes)) > 0) {
 				String toSend = new String(bytes);
 				toSend = toSend.substring(0, count);
-	            out.print(toSend);
+	            req.out.print(toSend);
 	        }
 			
 			in.close();
-			out.println();
+			req.out.println();
 		}
 	}
 	
