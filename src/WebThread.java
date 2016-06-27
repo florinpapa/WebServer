@@ -40,7 +40,7 @@ public class WebThread extends Thread {
 					in = new BufferedReader(
 					            new InputStreamReader(sock.getInputStream()));
 				    out = sock.getOutputStream();
-					http = new HTTPParser();
+					http = new HTTPParser("localhost");
 					
 					http.parseRequest(in, out);
 				    

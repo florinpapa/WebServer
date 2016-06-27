@@ -14,13 +14,15 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.net.ssl.HostnameVerifier;
+
 public class HTTPParser {
 	private StatusCodes statusCodes = new StatusCodes();
 	private String[] supported_methods = {"GET", "HEAD"};
 	private String[] not_implemented_methods = {"PUT", "POST", "DELETE",
 											    "CONNECT", "OPTIONS", "TRACE"};
 	private String serverRoot = "res/";
-	private String serverName = "localhost";
+	private String serverName;
 	
 	private class BasicRequest {
 		String method;
@@ -35,6 +37,10 @@ public class HTTPParser {
 		String method;
 	}
 	
+	public HTTPParser(String hostname) {
+		this.serverName = hostname;
+	}
+	
 	void parseRequest(BufferedReader in, OutputStream out) throws IOException {
 		BasicRequest reqLine = parseRequestLine(in);
 		Hashtable<String, String> attributes;
@@ -47,6 +53,12 @@ public class HTTPParser {
 			return;
 		} else {
 			attributes = parseAttributes(in);
+			if (attributes == null) {
+				req.statusCode = statusCodes.BAD_REQUEST;
+				printResponse(req);
+				return;
+			}
+			
 			if (isSupported(reqLine.method)) {
 				File target;
 				String method = reqLine.method;
@@ -67,6 +79,15 @@ public class HTTPParser {
 						req.statusCode = statusCodes.BAD_REQUEST;
 						printResponse(req);
 						return;
+					}
+					
+					/* HTTP/1.1 requires that the Host attribute is set */
+					if (reqLine.httpVersion.equals("HTTP/1.1")) {
+						if (!attributes.get("Host").equals(serverName)) {
+							req.statusCode = statusCodes.BAD_REQUEST;
+							printResponse(req);
+							return;
+						}
 					}
 					
 					if (method.equals("GET") || method.equals("HEAD")) {
@@ -223,7 +244,6 @@ public class HTTPParser {
 			out.print(result);
 			out.flush();
 			sendFile(req);
-			//req.out.flush();
 		}
 	}
 	
@@ -261,8 +281,6 @@ public class HTTPParser {
 				int count;
 				
 				while ((count = in.read(bytes)) > 0) {
-//					String toSend = new String(bytes);
-//					toSend = toSend.substring(0, count);
 		            req.out.write(bytes, 0, count);
 		        }
 				
@@ -360,26 +378,44 @@ public class HTTPParser {
 	}
 	
 	/*
-	 * Function that parses the attributes received
-	 * in the header of an HTTP request. Returns a
-	 * Hashtable<String, String> where the key is
-	 * the attribute name.
+	 * Function that parses the attributes received in the header of an HTTP
+	 * request. Returns a Hashtable<String, String> where the key is the
+	 * attribute name.
+	 * 
+	 * Attributes should have the syntax "Field-Name: Field-Value". No
+	 * whitespace is allowed between Field-Name and the colon, due to
+	 * security vulnerabilities.
+	 * (see https://tools.ietf.org/html/rfc7230#section-3.2.4)
+	 * A 400 - Bad Request will be returned for a whitespace detected there.
+	 * Preceding and trailing whitespaces in Field-Value will be discarded.  
 	 */
 	Hashtable<String, String> parseAttributes(BufferedReader in) throws IOException {
 		Hashtable<String, String> result = new Hashtable<>();
 		String line = in.readLine();
+		boolean invalid = false;
 		
 		while (!line.equals("")) {
 			/* only split by the first ':' */
 			String[] tokens = line.split(":", 2);
-			if (tokens.length == 2)
-				result.put(tokens[0], tokens[1]);
-			else
-				result.put(tokens[0], "");
+			if (tokens.length >= 1) {
+				/* no whitespace allowed between Field-Name and colon */
+				if (tokens[0].endsWith(" "))
+					invalid = true;
+				
+				if (tokens.length == 2) // Field-Name: Field-Value
+					result.put(tokens[0], tokens[1].trim());
+				else if (tokens.length == 1) // Field-Name: nothing
+					result.put(tokens[0], "");
+			} else { // not a valid attribute
+				invalid = true;
+			}
 			line = in.readLine();
 		}
 
-		return result;
+		if (invalid)
+			return null;
+		else
+			return result;
 	}
 	
 }
