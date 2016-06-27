@@ -151,7 +151,7 @@ public class HTTPParser {
 	String getTime(Object timestamp) {
 		String result = "";
 		final SimpleDateFormat sdf =
-		        new SimpleDateFormat("EEE, MMM d, yyyy hh:mm:ss a z");
+		        new SimpleDateFormat("EEE, MMM d, yyyy HH:mm:ss z");
 		sdf.setTimeZone(TimeZone.getTimeZone("GMT")); // GMT time
 		
 		if (timestamp == null) {
