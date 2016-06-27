@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -30,11 +31,11 @@ public class HTTPParser {
 	private class RequestInfo {
 		int statusCode;
 		File toSend;
-		PrintWriter out;
+		OutputStream out;
 		String method;
 	}
 	
-	void parseRequest(BufferedReader in, PrintWriter out) throws IOException {
+	void parseRequest(BufferedReader in, OutputStream out) throws IOException {
 		BasicRequest reqLine = parseRequestLine(in);
 		Hashtable<String, String> attributes;
 		RequestInfo req = new RequestInfo();
@@ -196,47 +197,51 @@ public class HTTPParser {
 	
 	void printResponse(RequestInfo req) throws IOException {
 		String result = new String("");
+		PrintWriter out = new PrintWriter(req.out);
 		
 		if (req.statusCode == statusCodes.BAD_REQUEST) {
 			result += "HTTP/1.1 400 Bad Request\n";
 			result += formatResponse("html/badrequest.html");
-			req.out.println(result);
-			req.out.flush();
+			out.println(result);
+			out.flush();
 		} else if (req.statusCode == statusCodes.NOT_IMPLEMENTED) {
 			result += "HTTP/1.1 501 Unsupported Method ('";
 			result += req.method + "')\n";
 			result += formatResponse("html/unsupported.html");
 			result = result.replace("method",
                     	"method '(" + req.method + ")'");
-			req.out.println(result);
-			req.out.flush();
+			out.println(result);
+			out.flush();
 		} else if (req.statusCode == statusCodes.NOT_FOUND) {
 			result += "HTTP/1.1 404 File not found\n";
 			result += formatResponse("html/filenotfound.html");
-			req.out.println(result);
-			req.out.flush();
+			out.println(result);
+			out.flush();
 		} else if (req.statusCode == statusCodes.OK) {		
 			result += "HTTP/1.1 200 OK\n";
 			result += getServerInfo();
-			req.out.print(result);
+			out.print(result);
+			out.flush();
 			sendFile(req);
-			req.out.flush();
+			//req.out.flush();
 		}
 	}
 	
 	void sendFile(RequestInfo req) throws IOException {
 		String result = "";
 		File f = req.toSend;
+		PrintWriter out = new PrintWriter(req.out);
 		
 		if (f.isDirectory()) {
 			String htmlBody = getDirListing(f);
-			result += "Content-type: text/html;charset=utf-8\n";
+			result += "Content-type: text/html; charset=utf-8\n";
 			result += "Content-Length: " + htmlBody.length() + "\n\n";
 			
 			if (req.method.equals("GET"))
-				req.out.println(result + htmlBody);
+				out.println(result + htmlBody);
 			else
-				req.out.print(result);
+				out.print(result);
+			out.flush();
 		} else {
 			long size = f.length();
 			
@@ -247,7 +252,8 @@ public class HTTPParser {
 			
 			result += "Content-Length: " + size + "\n";
 			result += "Last-Modified: " + getTime(f.lastModified()) + "\n\n";
-			req.out.print(result);
+			out.print(result);
+			out.flush();
 			
 			if (req.method.equals("GET")) {
 				InputStream in = new FileInputStream(f);
@@ -255,14 +261,16 @@ public class HTTPParser {
 				int count;
 				
 				while ((count = in.read(bytes)) > 0) {
-					String toSend = new String(bytes);
-					toSend = toSend.substring(0, count);
-		            req.out.print(toSend);
+//					String toSend = new String(bytes);
+//					toSend = toSend.substring(0, count);
+		            req.out.write(bytes, 0, count);
 		        }
 				
 				in.close();
-				req.out.println();
+				out.println();
+				out.flush();
 			}
+			
 		}
 	}
 	

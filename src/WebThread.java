@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -28,7 +29,7 @@ public class WebThread extends Thread {
 				} else {
 					Socket sock;
 					BufferedReader in;
-				    PrintWriter out;
+					OutputStream out;
 				    HTTPParser http;
 					
 					/* if no more work to be done, stop this thread */
@@ -38,7 +39,7 @@ public class WebThread extends Thread {
 					sock = w.sock;
 					in = new BufferedReader(
 					            new InputStreamReader(sock.getInputStream()));
-				    out = new PrintWriter(sock.getOutputStream());
+				    out = sock.getOutputStream();
 					http = new HTTPParser();
 					
 					http.parseRequest(in, out);
