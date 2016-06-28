@@ -392,10 +392,8 @@ public class HTTPParser {
 		}
 		req_parts = req.split(" ");
 		
-		if (req_parts.length != 2 && req_parts.length != 3)  {// bad request
-			System.out.println("BAD request");
+		if (req_parts.length != 2 && req_parts.length != 3) // bad request
 			return null;
-		}
 		
 		result = new BasicRequest();
 		result.method = req_parts[0];
