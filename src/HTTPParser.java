@@ -117,15 +117,17 @@ public class HTTPParser {
 		if (version.equals("HTTP/1.0"))
 			return true;
 		else if (version.equals("HTTP/1.1")) {
-			String host = attr.get("Host");
-			String hostComponents[] = host.split(":");
-			
-			if (hostComponents.length == 1)
-				return hostComponents[0].equals(this.host);
-			else if (hostComponents.length == 2) {
-				int recvPort = Integer.parseInt(hostComponents[1]);
-				String recvHost = hostComponents[0];
-				return (recvHost.equals(this.host) && recvPort == this.port); 
+			if (attr.containsKey("Host")) {
+				String host = attr.get("Host");
+				String hostComponents[] = host.split(":");
+				
+				if (hostComponents.length == 1)
+					return hostComponents[0].equals(this.host);
+				else if (hostComponents.length == 2) {
+					int recvPort = Integer.parseInt(hostComponents[1]);
+					String recvHost = hostComponents[0];
+					return (recvHost.equals(this.host) && recvPort == this.port); 
+				}
 			}
 		}
 		
