@@ -66,9 +66,11 @@ public class WebServer {
 		stopServer();
 	}
 	
+
 	void stopServer() {
 		try {
 			System.out.println("Stopping server");
+			setDone(true);
 			for (int i = 0; i < threadNo; i++) {
 				WorkItem w = new WorkItem(true, null);
 				work.offer(w);

@@ -41,6 +41,14 @@ public class HTTPParser {
 		this.port = port;
 	}
 	
+	/*
+	 * Function that parses an entire request. First, the request line is read
+	 * to determine the method, URI and HTTP version. The following lines that
+	 * contain attributes are read and stored in a Hashtable.
+	 * 
+	 * The response is also formed here, according with the request
+	 * correctness.
+	 */
 	void parseRequest(BufferedReader in, OutputStream out) throws IOException {
 		BasicRequest reqLine = parseRequestLine(in);
 		Hashtable<String, String> attributes;
@@ -138,19 +146,33 @@ public class HTTPParser {
 	 * and null otherwise.
 	 */
 	File parseTargetResource(String path) {
+		String absPattern = "(http://)?" + this.host + "(:" + 
+							this.port + ")?/.*";
 		Pattern originPattern = Pattern.compile("/.*");
-		Pattern absolutePattern = Pattern.compile("http://" + host + "/.*");
+		Pattern absolutePattern = Pattern.compile(absPattern);
 		Matcher originMatcher = originPattern.matcher(path);
 		Matcher absoluteMatcher = absolutePattern.matcher(path);
 		File result = null;
-		int pathStartIndex = 17;
 		
 		if (originMatcher.matches()) { // origin form
-			//System.out.println("origin form " + serverRoot + " " + path);
 			result = new File(serverRoot, path);
 		} else if (absoluteMatcher.matches()){ // absolute form
-			String relativePath = path.substring(pathStartIndex);
-			//System.out.println("absolute form " + serverRoot + " " + relativePath);
+			String relativePath;
+			
+			if (path.startsWith("http://")) {
+				String prefix = "http://" + this.host;
+				relativePath = path.substring(prefix.length());
+			} else {
+				relativePath = path.substring(this.host.length());
+			}
+			
+			if (relativePath.startsWith(":")) {
+				String pathComponents[] = relativePath.split("/", 2);
+				if (pathComponents.length == 1)
+					relativePath = "/";
+				else
+					relativePath = "/" + pathComponents[1];
+			}
 			result = new File(serverRoot, relativePath);
 		} else {
 			return null;
