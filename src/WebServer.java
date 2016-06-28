@@ -20,8 +20,10 @@ public class WebServer {
 	private int threadNo;
 	private boolean done = false;
 	private int SO_TIMEOUT = 2000;
+	private String host;
+	private int port;
 	
-	public WebServer(int port, int threadNo) {
+	public WebServer(String host, int port, int threadNo) {
 		try {
 			servSock = new ServerSocket(port);
 			webThreads = new ArrayList<>();
@@ -32,6 +34,8 @@ public class WebServer {
 			servSock.setSoTimeout(SO_TIMEOUT); // make sure the server does
 											   // not block on accept(), so
 											   // that it can be stopped
+			this.host = host;
+			this.port = port;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -39,7 +43,7 @@ public class WebServer {
 	
 	void run() {
 		for (int i = 0; i < threadNo; i++) {
-			WebThread wt = new WebThread(availableWork, work);
+			WebThread wt = new WebThread(availableWork, work, host, port);
 			wt.start();
 			webThreads.add(wt);
 		}
@@ -87,7 +91,7 @@ public class WebServer {
 	}
 	
 	public static void main(String args[]) {
-		WebServer ws = new WebServer(8080, 2);
+		WebServer ws = new WebServer("localhost", 8080, 2);
 		System.out.println("Starting web server on port 8080");
 		
 		/* start server */
@@ -97,15 +101,5 @@ public class WebServer {
 			}
 		});
 		t.start();
-		
-//		try {
-//			/* Sleep for 60 seconds before stopping the server */
-//		    Thread.sleep(60000);
-//		} catch(InterruptedException e) {
-//		    e.printStackTrace();
-//		}
-		
-//		System.out.println("Done waiting");
-//		ws.setDone(true);
 	}
 }

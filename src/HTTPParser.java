@@ -14,15 +14,14 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.net.ssl.HostnameVerifier;
-
 public class HTTPParser {
 	private StatusCodes statusCodes = new StatusCodes();
 	private String[] supported_methods = {"GET", "HEAD"};
 	private String[] not_implemented_methods = {"PUT", "POST", "DELETE",
 											    "CONNECT", "OPTIONS", "TRACE"};
 	private String serverRoot = "res/";
-	private String serverName;
+	private String host;
+	private int port;
 	
 	private class BasicRequest {
 		String method;
@@ -37,8 +36,9 @@ public class HTTPParser {
 		String method;
 	}
 	
-	public HTTPParser(String hostname) {
-		this.serverName = hostname;
+	public HTTPParser(String host, int port) {
+		this.host = host;
+		this.port = port;
 	}
 	
 	void parseRequest(BufferedReader in, OutputStream out) throws IOException {
@@ -68,26 +68,18 @@ public class HTTPParser {
 				 * resource is correct
 				 */
 				target = parseTargetResource(reqLine.path);
+				
 				/* badly formatted URI */
 				if (target == null) {
 					req.statusCode = statusCodes.BAD_REQUEST;
 					printResponse(req);
 					return;
 				} else {
-					/* bad HTTP version */
-					if (!supportedHttpVersion(reqLine.httpVersion)) {
+					/* HTTP/1.1 requires that the Host attribute is set */
+					if (!supportedHttpVersion(reqLine.httpVersion, attributes)) {
 						req.statusCode = statusCodes.BAD_REQUEST;
 						printResponse(req);
 						return;
-					}
-					
-					/* HTTP/1.1 requires that the Host attribute is set */
-					if (reqLine.httpVersion.equals("HTTP/1.1")) {
-						if (!attributes.get("Host").equals(serverName)) {
-							req.statusCode = statusCodes.BAD_REQUEST;
-							printResponse(req);
-							return;
-						}
 					}
 					
 					if (method.equals("GET") || method.equals("HEAD")) {
@@ -113,8 +105,23 @@ public class HTTPParser {
 		}
 	}
 	
-	boolean supportedHttpVersion(String version) {
-		return (version.equals("HTTP/1.1") || version.equals("HTTP/1.0"));
+	boolean supportedHttpVersion(String version, Hashtable<String, String> attr) {
+		if (version.equals("HTTP/1.0"))
+			return true;
+		else if (version.equals("HTTP/1.1")) {
+			String host = attr.get("Host");
+			String hostComponents[] = host.split(":");
+			
+			if (hostComponents.length == 1)
+				return hostComponents[0].equals(this.host);
+			else if (hostComponents.length == 2) {
+				int recvPort = Integer.parseInt(hostComponents[1]);
+				String recvHost = hostComponents[0];
+				return (recvHost.equals(this.host) && recvPort == this.port); 
+			}
+		}
+		
+		return false;
 	}
 	
 	/*
@@ -132,7 +139,7 @@ public class HTTPParser {
 	 */
 	File parseTargetResource(String path) {
 		Pattern originPattern = Pattern.compile("/.*");
-		Pattern absolutePattern = Pattern.compile("http://" + serverName + "/.*");
+		Pattern absolutePattern = Pattern.compile("http://" + host + "/.*");
 		Matcher originMatcher = originPattern.matcher(path);
 		Matcher absoluteMatcher = absolutePattern.matcher(path);
 		File result = null;

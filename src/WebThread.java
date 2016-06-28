@@ -11,10 +11,15 @@ import java.util.concurrent.Semaphore;
 public class WebThread extends Thread {
 	private Semaphore availableWork;
 	private ConcurrentLinkedQueue<WorkItem> work;
+	private String host;
+	private int port;
 	
-	WebThread(Semaphore availableWork, ConcurrentLinkedQueue<WorkItem> work) {
+	WebThread(Semaphore availableWork, ConcurrentLinkedQueue<WorkItem> work,
+			  String host, int port) {
 		this.availableWork = availableWork;
 		this.work = work;
+		this.host = host;
+		this.port = port;
 	}
 	
 	public void run() {
@@ -40,7 +45,7 @@ public class WebThread extends Thread {
 					in = new BufferedReader(
 					            new InputStreamReader(sock.getInputStream()));
 				    out = sock.getOutputStream();
-					http = new HTTPParser("localhost");
+					http = new HTTPParser(host, port);
 					
 					http.parseRequest(in, out);
 				    
